@@ -372,6 +372,7 @@ async function runOptimize() {
     if (data.success) {
       btn.textContent = "最適化完了";
       appendAiMessage("スキルシートの最適化が完了しました。スキルシート管理画面で確認できます。");
+      showSkillsheetLink();
     } else {
       btn.textContent = "最適化に失敗しました";
       appendAiMessage("最適化処理でエラーが発生しました。");
@@ -380,4 +381,14 @@ async function runOptimize() {
     btn.textContent = "エラー";
     appendAiMessage("通信エラーが発生しました。");
   }
+}
+
+function showSkillsheetLink() {
+  var link = document.createElement("div");
+  link.className = "optimize-banner";
+  link.style.marginTop = "12px";
+  link.innerHTML =
+    '<a href="/skillsheet" class="optimize-btn" style="display:inline-block;text-decoration:none;">スキルシートを確認する</a>';
+  messagesArea.appendChild(link);
+  scrollToBottom();
 }

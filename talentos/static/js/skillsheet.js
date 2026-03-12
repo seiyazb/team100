@@ -288,12 +288,17 @@ async function saveSheet() {
     return;
   }
 
+  var btn = document.getElementById("btn-save");
+  var originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "保存中...";
+
   try {
     var res = await fetch("/api/skillsheet/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        engineer_id: window.__USER__.user_id,
+        engineer_id: window.__TARGET_ENGINEER_ID__ || window.__USER__.user_id,
         basic: ssState.data.basic || null,
         career: ssState.data.career || null,
         skills: ssState.data.skills || null,
@@ -301,12 +306,21 @@ async function saveSheet() {
     });
     var result = await res.json();
     if (result.success) {
+      btn.textContent = "保存しました \u2713";
       showToast("保存しました");
+      setTimeout(function () {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }, 2000);
     } else {
-      alert("保存に失敗しました。");
+      btn.textContent = originalText;
+      btn.disabled = false;
+      alert(result.detail || "保存に失敗しました。");
     }
   } catch (e) {
-    alert("通信エラーが発生しました。");
+    btn.textContent = originalText;
+    btn.disabled = false;
+    alert("データの保存に失敗しました。");
   }
 }
 

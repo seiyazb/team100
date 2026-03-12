@@ -64,6 +64,9 @@
       <div class="ss-preview-header">
         <h3 class="ss-preview-title">スキルシート</h3>
         <div class="ss-preview-actions">
+          {% if user.role in ['engineer', 'admin'] %}
+          <a href="/hearing" class="btn-outline" style="text-decoration:none;">AIチャットで修正</a>
+          {% endif %}
           <button class="btn-outline" onclick="window.print()">Preview</button>
           <button class="btn-outline btn-save" id="btn-save">Save change</button>
           <button class="btn-primary" id="btn-pdf">PDF出力</button>

@@ -12,7 +12,7 @@ from db.database import get_connection
 router = APIRouter(prefix="/api/skillsheet", tags=["skillsheet"])
 
 
-def _build_sheet_response(engineer_id: str) -> dict:
+def _build_sheet_response(engineer_id: str) -> Optional[dict]:
     conn = get_connection()
 
     user_row = conn.execute(
@@ -38,10 +38,10 @@ def _build_sheet_response(engineer_id: str) -> dict:
 
     conn.close()
 
-    basic_data = {}
-    skills_data = {}
-    optimized = {}
-    career_from_sheet = None
+    basic_data: dict = {}
+    skills_data: dict = {}
+    optimized: dict = {}
+    career_from_sheet: Optional[dict] = None
 
     for s in sheets:
         raw = json.loads(s["raw_data"]) if s["raw_data"] else {}
@@ -55,7 +55,7 @@ def _build_sheet_response(engineer_id: str) -> dict:
         if opt:
             optimized[s["theme"]] = opt
 
-    career_list = []
+    career_list: list[dict] = []
     if career_from_sheet and isinstance(career_from_sheet, dict) and career_from_sheet.get("project_name"):
         career_list.append(career_from_sheet)
 
@@ -87,7 +87,7 @@ def _build_sheet_response(engineer_id: str) -> dict:
 
 
 @router.get("/{engineer_id}")
-def get_skillsheet(engineer_id: str, request: Request):
+async def get_skillsheet(engineer_id: str, request: Request) -> dict:
     user = request.state.user
     if user["role"] == "engineer" and user["user_id"] != engineer_id:
         raise HTTPException(status_code=403, detail="自分のスキルシートのみ閲覧できます")
@@ -106,7 +106,7 @@ class SaveRequest(BaseModel):
 
 
 @router.post("/save")
-def save_skillsheet(body: SaveRequest, request: Request):
+async def save_skillsheet(body: SaveRequest, request: Request) -> dict:
     user = request.state.user
     engineer_id = body.engineer_id
 
@@ -114,58 +114,62 @@ def save_skillsheet(body: SaveRequest, request: Request):
         raise HTTPException(status_code=403, detail="自分のスキルシートのみ編集できます")
 
     now = datetime.datetime.now().isoformat()
-    conn = get_connection()
 
-    for theme, data in [("basic", body.basic), ("career", body.career), ("skills", body.skills)]:
-        if data is None:
-            continue
-        data_json = json.dumps(data, ensure_ascii=False)
-        row = conn.execute(
-            "SELECT sheet_id FROM skill_sheets WHERE engineer_id = ? AND theme = ?",
-            (engineer_id, theme),
-        ).fetchone()
-        if row:
-            conn.execute(
-                "UPDATE skill_sheets SET raw_data = ?, updated_at = ? WHERE sheet_id = ?",
-                (data_json, now, row["sheet_id"]),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO skill_sheets (engineer_id, theme, raw_data, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                (engineer_id, theme, data_json, now, now),
-            )
+    try:
+        conn = get_connection()
 
-    if body.basic:
-        b = body.basic
-        eng_row = conn.execute("SELECT engineer_id FROM engineers WHERE engineer_id = ?", (engineer_id,)).fetchone()
-        if eng_row:
-            conn.execute(
-                "UPDATE engineers SET specialty=?, relocation_ok=?, work_location=?, nearest_station=?,"
-                " education_level=?, school_name=?, faculty_name=?, department_name=?,"
-                " self_pr=?, hobbies=?, skill_level=?, updated_at=? WHERE engineer_id=?",
-                (b.get("specialty"), b.get("relocation_ok", 0), b.get("work_location"),
-                 b.get("nearest_station"), b.get("education_level"), b.get("school_name"),
-                 b.get("faculty_name"), b.get("department_name"), b.get("self_pr"),
-                 b.get("hobbies"), b.get("skill_level"), now, engineer_id),
-            )
-        else:
-            conn.execute(
-                "INSERT INTO engineers (engineer_id, specialty, relocation_ok, work_location, nearest_station,"
-                " education_level, school_name, faculty_name, department_name, self_pr, hobbies, skill_level, updated_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (engineer_id, b.get("specialty"), b.get("relocation_ok", 0), b.get("work_location"),
-                 b.get("nearest_station"), b.get("education_level"), b.get("school_name"),
-                 b.get("faculty_name"), b.get("department_name"), b.get("self_pr"),
-                 b.get("hobbies"), b.get("skill_level"), now),
-            )
+        for theme, data in [("basic", body.basic), ("career", body.career), ("skills", body.skills)]:
+            if data is None:
+                continue
+            data_json = json.dumps(data, ensure_ascii=False)
+            row = conn.execute(
+                "SELECT sheet_id FROM skill_sheets WHERE engineer_id = ? AND theme = ?",
+                (engineer_id, theme),
+            ).fetchone()
+            if row:
+                conn.execute(
+                    "UPDATE skill_sheets SET raw_data = ?, updated_at = ? WHERE sheet_id = ?",
+                    (data_json, now, row["sheet_id"]),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO skill_sheets (engineer_id, theme, raw_data, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                    (engineer_id, theme, data_json, now, now),
+                )
 
-    conn.commit()
-    conn.close()
-    return {"success": True}
+        if body.basic:
+            b = body.basic
+            eng_row = conn.execute("SELECT engineer_id FROM engineers WHERE engineer_id = ?", (engineer_id,)).fetchone()
+            if eng_row:
+                conn.execute(
+                    "UPDATE engineers SET specialty=?, relocation_ok=?, work_location=?, nearest_station=?,"
+                    " education_level=?, school_name=?, faculty_name=?, department_name=?,"
+                    " self_pr=?, hobbies=?, skill_level=?, updated_at=? WHERE engineer_id=?",
+                    (b.get("specialty"), b.get("relocation_ok", 0), b.get("work_location"),
+                     b.get("nearest_station"), b.get("education_level"), b.get("school_name"),
+                     b.get("faculty_name"), b.get("department_name"), b.get("self_pr"),
+                     b.get("hobbies"), b.get("skill_level"), now, engineer_id),
+                )
+            else:
+                conn.execute(
+                    "INSERT INTO engineers (engineer_id, specialty, relocation_ok, work_location, nearest_station,"
+                    " education_level, school_name, faculty_name, department_name, self_pr, hobbies, skill_level, updated_at)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (engineer_id, b.get("specialty"), b.get("relocation_ok", 0), b.get("work_location"),
+                     b.get("nearest_station"), b.get("education_level"), b.get("school_name"),
+                     b.get("faculty_name"), b.get("department_name"), b.get("self_pr"),
+                     b.get("hobbies"), b.get("skill_level"), now),
+                )
+
+        conn.commit()
+        conn.close()
+        return {"success": True}
+    except Exception:
+        raise HTTPException(status_code=500, detail="データの保存に失敗しました。")
 
 
 @router.get("/{engineer_id}/pdf")
-def get_pdf(engineer_id: str, request: Request):
+async def get_pdf(engineer_id: str, request: Request) -> Response:
     user = request.state.user
     if user["role"] == "engineer" and user["user_id"] != engineer_id:
         raise HTTPException(status_code=403, detail="自分のスキルシートのみ出力できます")
@@ -178,7 +182,7 @@ def get_pdf(engineer_id: str, request: Request):
 
     try:
         from weasyprint import HTML
-        pdf_bytes = HTML(string=html_content).write_pdf()
+        pdf_bytes: bytes = HTML(string=html_content).write_pdf()
     except ImportError:
         return Response(
             content=html_content.encode("utf-8"),
@@ -194,18 +198,18 @@ def get_pdf(engineer_id: str, request: Request):
 
 
 def _render_pdf_html(data: dict) -> str:
-    basic = data.get("basic", {})
-    career_list = data.get("career", [])
-    skills = data.get("skills", {})
+    basic: dict = data.get("basic", {})
+    career_list: list = data.get("career", [])
+    skills: dict = data.get("skills", {})
 
-    all_skills = []
+    all_skills: list[str] = []
     for c in career_list:
         all_skills.extend(c.get("tech_stack", []))
     all_skills.extend(skills.get("tools", []))
     all_skills.extend(skills.get("languages", []))
-    unique_skills = list(dict.fromkeys(all_skills))
+    unique_skills: list[str] = list(dict.fromkeys(all_skills))
 
-    career_html = ""
+    career_html: str = ""
     for c in career_list:
         ts = ", ".join(c.get("tech_stack", []))
         career_html += (
@@ -220,12 +224,12 @@ def _render_pdf_html(data: dict) -> str:
             '</div>'
         )
 
-    certs = skills.get("certifications", [])
-    certs_html = ", ".join(certs) if certs else "—"
-    langs = skills.get("language_skills", [])
-    langs_html = ", ".join(f'{l.get("language","")}: {l.get("level","")}' for l in langs) if langs else "—"
+    certs: list = skills.get("certifications", [])
+    certs_html: str = ", ".join(certs) if certs else "—"
+    langs: list = skills.get("language_skills", [])
+    langs_html: str = ", ".join(f'{l.get("language","")}: {l.get("level","")}' for l in langs) if langs else "—"
 
-    skill_tags = "".join(f'<span class="skill-tag">{_esc(s)}</span>' for s in unique_skills)
+    skill_tags: str = "".join(f'<span class="skill-tag">{_esc(s)}</span>' for s in unique_skills)
 
     return (
         '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
@@ -255,7 +259,7 @@ def _render_pdf_html(data: dict) -> str:
     )
 
 
-def _esc(s) -> str:
+def _esc(s: object) -> str:
     if s is None:
         return ""
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")

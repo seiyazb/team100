@@ -10,8 +10,8 @@ from db.database import get_connection
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
-DIFY_API_KEY = os.getenv("DIFY_API_KEY", "")
-DIFY_BASE_URL = os.getenv("DIFY_BASE_URL", "")
+DIFY_API_KEY: str = os.getenv("DIFY_API_KEY", "")
+DIFY_BASE_URL: str = os.getenv("DIFY_BASE_URL", "")
 
 
 class SearchRequest(BaseModel):
@@ -22,26 +22,26 @@ def _use_dify() -> bool:
     return bool(DIFY_API_KEY and DIFY_BASE_URL)
 
 
-def _extract_keywords(query: str) -> list:
-    known = [
+def _extract_keywords(query: str) -> list[str]:
+    known: list[str] = [
         "Python", "Java", "JavaScript", "TypeScript", "Go", "Rust", "C#", "PHP", "Ruby", "Swift",
         "AWS", "Azure", "GCP", "Docker", "Kubernetes", "Terraform", "Linux",
         "React", "Vue", "Angular", "Next.js", "Node.js", "FastAPI", "Django", "Flask", "Spring",
         "PostgreSQL", "MySQL", "MongoDB", "Redis", "SQLite",
         "GitHub", "GitHub Actions", "CI/CD", "Git",
     ]
-    found = []
-    q_upper = query.upper()
+    found: list[str] = []
+    q_upper: str = query.upper()
     for k in known:
         if k.upper() in q_upper:
             found.append(k)
     if not found:
-        words = re.findall(r'[A-Za-z#.+]+', query)
+        words: list[str] = re.findall(r'[A-Za-z#.+]+', query)
         found = [w for w in words if len(w) >= 2]
     return found
 
 
-def _search_engineers(keywords: list) -> list:
+def _search_engineers(keywords: list[str]) -> list[dict]:
     conn = get_connection()
     engineers = conn.execute(
         "SELECT u.user_id, u.name, e.specialty "
@@ -49,18 +49,18 @@ def _search_engineers(keywords: list) -> list:
         "WHERE u.role = 'engineer'"
     ).fetchall()
 
-    results = []
+    results: list[dict] = []
     for eng in engineers:
-        eid = eng["user_id"]
+        eid: str = eng["user_id"]
         sheets = conn.execute(
             "SELECT theme, raw_data FROM skill_sheets WHERE engineer_id = ?", (eid,)
         ).fetchall()
 
-        all_skills = []
-        latest_role = ""
-        exp_summary = ""
+        all_skills: list[str] = []
+        latest_role: str = ""
+        exp_summary: str = ""
         for s in sheets:
-            raw = json.loads(s["raw_data"]) if s["raw_data"] else {}
+            raw: dict = json.loads(s["raw_data"]) if s["raw_data"] else {}
             if s["theme"] == "career":
                 ts = raw.get("tech_stack", [])
                 if isinstance(ts, list):
@@ -86,9 +86,9 @@ def _search_engineers(keywords: list) -> list:
             if not exp_summary:
                 exp_summary = e["description"] or ""
 
-        unique_skills = list(dict.fromkeys(all_skills))
+        unique_skills: list[str] = list(dict.fromkeys(all_skills))
 
-        matched = []
+        matched: list[str] = []
         for kw in keywords:
             for sk in unique_skills:
                 if kw.upper() in sk.upper():
@@ -113,46 +113,61 @@ def _search_engineers(keywords: list) -> list:
 
 
 @router.post("")
-async def do_search(body: SearchRequest, request: Request):
-    query = body.query.strip()
+async def do_search(body: SearchRequest, request: Request) -> dict:
+    query: str = body.query.strip()
 
     if _use_dify():
         return await _dify_search(query, request)
 
-    keywords = _extract_keywords(query)
-    results = _search_engineers(keywords)
-    kw_text = "・".join(keywords) if keywords else query
-    ai_insight = (
+    keywords: list[str] = _extract_keywords(query)
+    results: list[dict] = _search_engineers(keywords)
+    kw_text: str = "・".join(keywords) if keywords else query
+    ai_insight: str = (
         kw_text + "に関連するエンジニアを検索しました。"
         + str(len(results)) + "件の結果が見つかりました。"
     )
     return {"ai_insight": ai_insight, "results": results}
 
 
-async def _dify_search(query: str, request: Request):
+async def _dify_search(query: str, request: Request) -> dict:
     import httpx
 
-    user = request.state.user
-    payload = {
+    user: dict = request.state.user
+    payload: dict = {
         "inputs": {"search_query": query},
         "response_mode": "blocking",
         "user": user["user_id"],
     }
-    headers = {"Authorization": "Bearer " + DIFY_API_KEY}
+    headers: dict = {"Authorization": "Bearer " + DIFY_API_KEY}
 
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
                 DIFY_BASE_URL + "/v1/workflows/run", json=payload, headers=headers
             )
-            data = resp.json()
 
-        outputs = data.get("data", {}).get("outputs", {})
-        conditions = outputs.get("conditions", {})
-        ai_insight = outputs.get("ai_insight", "検索結果です。")
+        if resp.status_code >= 500:
+            keywords: list[str] = _extract_keywords(query)
+            results: list[dict] = _search_engineers(keywords)
+            return {
+                "ai_insight": "AI機能が一時的に利用できません。キーワード検索で代替しました。",
+                "results": results,
+            }
+
+        data: dict = resp.json()
+        outputs: dict = data.get("data", {}).get("outputs", {})
+        conditions: dict = outputs.get("conditions", {})
+        ai_insight: str = outputs.get("ai_insight", "検索結果です。")
         keywords = conditions.get("skills", [])
         results = _search_engineers(keywords)
         return {"ai_insight": ai_insight, "results": results}
+    except httpx.TimeoutException:
+        keywords = _extract_keywords(query)
+        results = _search_engineers(keywords)
+        return {
+            "ai_insight": "AIの応答がタイムアウトしました。キーワード検索で代替しました。",
+            "results": results,
+        }
     except Exception:
         keywords = _extract_keywords(query)
         results = _search_engineers(keywords)
