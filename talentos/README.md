@@ -4,13 +4,19 @@ IT人材派遣会社向け社内Webアプリ
 
 ## 起動方法
 
-1. 依存パッケージのインストール
+1. `talentos` ディレクトリに移動
+
+   ```
+   cd talentos
+   ```
+
+2. 依存パッケージのインストール
 
    ```
    pip install -r requirements.txt
    ```
 
-2. 環境変数の設定
+3. 環境変数の設定
 
    `.env` ファイルを作成し、以下を設定：
 
@@ -20,13 +26,13 @@ IT人材派遣会社向け社内Webアプリ
    SECRET_KEY=（セッション暗号化用の任意の文字列）
    ```
 
-3. 起動
+4. 起動
 
    ```
    uvicorn main:app --reload
    ```
 
-4. アクセス
+5. アクセス
 
    http://localhost:8000/login
 

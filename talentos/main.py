@@ -5,11 +5,12 @@ from __future__ import annotations
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.exceptions import HTTPException
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from db.database import init_db
 from routers import auth, skillsheet, hearing, search, users
@@ -35,10 +36,9 @@ app.include_router(search.router)
 app.include_router(users.router)
 
 
-# --- セッション検証 + ロール制御ミドルウェア ---
+# --- セッション検証 + ロール制御ミドルウェア (純粋 ASGI) ---
 PUBLIC_PATHS: set[str] = {"/login", "/api/auth/login", "/api/auth/logout"}
 
-# ページパスごとのアクセス許可ロール
 PAGE_ROLES: dict[str, set[str]] = {
     "/hearing": {"engineer", "admin"},
     "/skillsheet": {"engineer", "sales", "admin"},
@@ -47,36 +47,65 @@ PAGE_ROLES: dict[str, set[str]] = {
 }
 
 
-class SessionMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        path: str = request.url.path
+class SessionMiddleware:
+    """純粋 ASGI ミドルウェア — BaseHTTPMiddleware のストリーム破損問題を回避"""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path: str = scope["path"]
 
         # 公開パス・静的ファイルはスキップ
         if path in PUBLIC_PATHS or path.startswith("/static"):
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
-        # Cookie からセッション検証
-        token: str | None = request.cookies.get("session")
+        # Cookie からセッショントークンを取得
+        headers: dict[str, str] = {}
+        for key, value in scope.get("headers", []):
+            if key == b"cookie":
+                headers["cookie"] = value.decode("latin-1")
+                break
+
+        token: str | None = None
+        cookie_str: str = headers.get("cookie", "")
+        for part in cookie_str.split(";"):
+            part = part.strip()
+            if part.startswith("session="):
+                token = part[len("session="):]
+                break
+
         if token:
             serializer = URLSafeTimedSerializer(app.state.secret_key)
             try:
                 data: dict = serializer.loads(token, max_age=8 * 60 * 60)
-                request.state.user = data
+                # request.state.user にセットするために scope に埋め込む
+                scope.setdefault("state", {})
+                scope["state"]["user"] = data
 
                 # ページレベルのロールチェック
                 allowed_roles: set[str] | None = PAGE_ROLES.get(path)
                 if allowed_roles and data.get("role") not in allowed_roles:
-                    return templates.TemplateResponse("forbidden.html", {
-                        "request": request,
+                    response = templates.TemplateResponse("forbidden.html", {
+                        "request": Request(scope),
                         "user": data,
                     }, status_code=403)
+                    await response(scope, receive, send)
+                    return
 
-                return await call_next(request)
+                await self.app(scope, receive, send)
+                return
             except (BadSignature, SignatureExpired):
                 pass
 
         # 未認証 → ログインへリダイレクト
-        return RedirectResponse(url="/login", status_code=302)
+        response = RedirectResponse(url="/login", status_code=302)
+        await response(scope, receive, send)
 
 
 app.add_middleware(SessionMiddleware)
@@ -132,6 +161,21 @@ async def users_page(request: Request) -> HTMLResponse:
         "request": request,
         "user": request.state.user,
     })
+
+
+# --- カスタムエラーハンドラ ---
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: HTTPException) -> RedirectResponse | JSONResponse:
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
+    return RedirectResponse(url="/top", status_code=302)
+
+
+@app.exception_handler(500)
+async def server_error_handler(request: Request, exc: Exception) -> RedirectResponse | JSONResponse:
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+    return RedirectResponse(url="/login", status_code=302)
 
 
 # --- 起動時にDB初期化 ---
