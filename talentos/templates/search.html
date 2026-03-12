@@ -27,6 +27,16 @@
     .search-btn:hover { opacity: .88; }
     .search-btn:disabled { opacity: .4; cursor: not-allowed; }
 
+    .search-spinner {
+      display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .no-results {
+      text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px;
+    }
+
     .ai-insight {
       background: var(--orange-50); border: 1px solid var(--orange-200); border-radius: 10px;
       padding: 14px 18px; margin: 20px 0; font-size: 13px; color: var(--text-primary); display: none;
@@ -129,7 +139,7 @@
       if (!query) return;
 
       searchBtn.disabled = true;
-      searchBtn.textContent = "検索中...";
+      searchBtn.innerHTML = '<span class="search-spinner"></span>検索中...';
       insightEl.style.display = "none";
       resultsHeader.style.display = "none";
       resultsGrid.innerHTML = "";
@@ -148,6 +158,11 @@
         var results = data.results || [];
         resultsCount.textContent = results.length;
         resultsHeader.style.display = "block";
+
+        if (results.length === 0) {
+          resultsGrid.innerHTML = '<div class="no-results">条件に一致するエンジニアが見つかりませんでした。</div>';
+          return;
+        }
 
         results.forEach(function (r) {
           var tags = (r.top_skills || []).map(function (s) {
@@ -170,7 +185,7 @@
         insightEl.style.display = "block";
       } finally {
         searchBtn.disabled = false;
-        searchBtn.textContent = "\uD83D\uDD0D AIで検索する";
+        searchBtn.innerHTML = "&#128269; AI\u3067\u691c\u7d22\u3059\u308b";
       }
     }
 
