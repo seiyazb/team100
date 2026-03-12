@@ -12,8 +12,8 @@ from db.database import get_connection
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
-DIFY_API_KEY: str = os.getenv("DIFY_API_KEY", "")
 DIFY_BASE_URL: str = os.getenv("DIFY_BASE_URL", "")
+DIFY_SEARCH_API_KEY: str = os.getenv("DIFY_SEARCH_API_KEY", "")
 
 
 class SearchRequest(BaseModel):
@@ -21,7 +21,7 @@ class SearchRequest(BaseModel):
 
 
 def _use_dify() -> bool:
-    return bool(DIFY_API_KEY and DIFY_BASE_URL)
+    return bool(DIFY_SEARCH_API_KEY and DIFY_BASE_URL)
 
 
 def _extract_keywords(query: str) -> list[str]:
@@ -140,10 +140,10 @@ async def _dify_search(query: str, request: Request) -> dict:
         "response_mode": "blocking",
         "user": user["user_id"],
     }
-    headers: dict = {"Authorization": "Bearer " + DIFY_API_KEY}
+    headers: dict = {"Authorization": "Bearer " + DIFY_SEARCH_API_KEY}
 
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 DIFY_BASE_URL + "/v1/workflows/run", json=payload, headers=headers
             )
@@ -158,11 +158,20 @@ async def _dify_search(query: str, request: Request) -> dict:
 
         data: dict = resp.json()
         outputs: dict = data.get("data", {}).get("outputs", {})
-        conditions: dict = outputs.get("conditions", {})
-        ai_insight: str = outputs.get("ai_insight", "検索結果です。")
+        result_str: str = outputs.get("result", "{}")
+        try:
+            parsed: dict = json.loads(result_str)
+        except (json.JSONDecodeError, TypeError):
+            parsed = {}
+        conditions: dict = parsed.get("conditions", {})
+        ai_insight: str = parsed.get("ai_insight", "検索結果です。")
         keywords = conditions.get("skills", [])
         results = _search_engineers(keywords)
-        return {"ai_insight": ai_insight, "results": results}
+        return {
+            "ai_insight": ai_insight,
+            "search_summary": parsed.get("search_summary", ""),
+            "results": results,
+        }
     except httpx.TimeoutException:
         keywords = _extract_keywords(query)
         results = _search_engineers(keywords)

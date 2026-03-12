@@ -21,9 +21,12 @@ IT人材派遣会社向け社内Webアプリ
    `.env` ファイルを作成し、以下を設定：
 
    ```
-   DIFY_API_KEY=（DifyのAPIキー。未設定の場合はモック動作）
-   DIFY_BASE_URL=（DifyのベースURL。例：https://api.dify.ai）
    SECRET_KEY=（セッション暗号化用の任意の文字列）
+   DIFY_BASE_URL=https://api.dify.ai
+   DIFY_HEARING_API_KEY=（ヒアリングチャット用。未設定でモック動作）
+   DIFY_OPTIMIZE_API_KEY=（スキルシート最適化用。未設定でモック動作）
+   DIFY_SEARCH_API_KEY=（人材検索クエリ解析用。未設定でモック動作）
+   API_KEY=（外部サービス向けAPIキー認証。任意）
    ```
 
 4. 起動

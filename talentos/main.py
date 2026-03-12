@@ -23,6 +23,7 @@ _secret_key: str | None = os.getenv("SECRET_KEY")
 if not _secret_key:
     raise RuntimeError("SECRET_KEY が設定されていません。.env ファイルに SECRET_KEY を設定してください。")
 app.state.secret_key = _secret_key
+app.state.api_key = os.getenv("API_KEY", "")
 
 # 静的ファイル・テンプレート
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -37,7 +38,7 @@ app.include_router(users.router)
 
 
 # --- セッション検証 + ロール制御ミドルウェア (純粋 ASGI) ---
-PUBLIC_PATHS: set[str] = {"/login", "/api/auth/login", "/api/auth/logout"}
+PUBLIC_PATHS: set[str] = {"/login", "/api/auth/login", "/api/auth/logout", "/docs", "/openapi.json", "/redoc"}
 
 PAGE_ROLES: dict[str, set[str]] = {
     "/hearing": {"engineer", "admin"},
@@ -64,6 +65,15 @@ class SessionMiddleware:
         if path in PUBLIC_PATHS or path.startswith("/static"):
             await self.app(scope, receive, send)
             return
+
+        # API キー認証（Dify 等の外部サービス向け）
+        if path.startswith("/api/") and app.state.api_key:
+            for key, value in scope.get("headers", []):
+                if key == b"x-api-key" and value.decode("latin-1") == app.state.api_key:
+                    scope.setdefault("state", {})
+                    scope["state"]["user"] = {"user_id": "api", "name": "API", "role": "admin"}
+                    await self.app(scope, receive, send)
+                    return
 
         # Cookie からセッショントークンを取得
         headers: dict[str, str] = {}

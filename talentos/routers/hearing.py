@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import datetime
 from typing import Optional
 
@@ -14,13 +15,14 @@ from db.database import get_connection
 
 router = APIRouter(prefix="/api/hearing", tags=["hearing"])
 
-DIFY_API_KEY: str = os.getenv("DIFY_API_KEY", "")
 DIFY_BASE_URL: str = os.getenv("DIFY_BASE_URL", "")
+DIFY_HEARING_API_KEY: str = os.getenv("DIFY_HEARING_API_KEY", "")
+DIFY_OPTIMIZE_API_KEY: str = os.getenv("DIFY_OPTIMIZE_API_KEY", "")
 
 REQUIRED_FIELDS: dict[str, str] = {
-    "basic": "専門分野、転勤可否、可能勤務地、最寄駅、最終学歴、学校名、学部・専攻名、学科名、自己PR、趣味特技、スキルレベル",
-    "career": "プロジェクト名、期間（開始・終了）、チーム規模、役職・役割、使用技術、業務内容",
-    "skills": "使用ツール、保有資格、語学力",
+    "basic": "専門分野、転勤可否、可能勤務地、最寄駅、最終学歴（学校名・学部・学科）、自己PR（80文字以上）、趣味特技、スキルレベル",
+    "career": "プロジェクト名、期間（開始・終了年月）、チーム規模（人数）、役職・役割、使用技術スタック、業務内容（80文字以上）",
+    "skills": "語学力（言語名とレベル）、使用ツール、保有資格",
 }
 
 MOCK_QUESTIONS: dict[str, list[str]] = {
@@ -47,7 +49,7 @@ MOCK_QUESTIONS: dict[str, list[str]] = {
 MOCK_EXTRACTED: dict[str, dict] = {
     "basic": {
         "specialty": "バックエンド開発",
-        "relocation_ok": 1,
+        "relocation_ok": False,
         "work_location": "東京都、リモート可",
         "nearest_station": "渋谷駅",
         "education_level": "大学卒",
@@ -59,27 +61,59 @@ MOCK_EXTRACTED: dict[str, dict] = {
         "skill_level": "上級",
     },
     "career": {
-        "project_name": "金融システムAWS移行",
-        "role_title": "テックリード",
-        "team_size": 8,
-        "period_start": "2023/04",
-        "period_end": "2024/09",
-        "tech_stack": ["AWS", "Terraform", "Python", "GitHub Actions"],
-        "description": "オンプレミスからAWSへの移行をリードし、CI/CDパイプラインの構築を担当",
+        "experiences": [
+            {
+                "project_name": "金融システムAWS移行プロジェクト",
+                "period_start": "2023/04",
+                "period_end": "2024/09",
+                "team_size": 8,
+                "role_title": "テックリード",
+                "tech_stack": ["AWS", "Terraform", "Python", "GitHub Actions", "PostgreSQL"],
+                "description": "オンプレミスで稼働していた金融システムのAWS移行を担当。インフラ設計からCI/CDパイプライン構築、本番切り替えまでを一貫してリード。無停止移行を実現し、運用コストを約30%削減。",
+            }
+        ]
     },
     "skills": {
-        "tools": ["VS Code", "Git", "Docker", "Terraform", "GitHub Actions"],
-        "certifications": ["AWS Solutions Architect Associate", "基本情報技術者"],
         "language_skills": [
             {"language": "日本語", "level": "ネイティブ"},
             {"language": "英語", "level": "ビジネスレベル"},
         ],
+        "tool_info": ["VS Code", "Git", "Docker", "Terraform", "GitHub Actions"],
+        "certifications": ["AWS Solutions Architect Associate", "基本情報技術者"],
     },
 }
 
 
-def _use_dify() -> bool:
-    return bool(DIFY_API_KEY and DIFY_BASE_URL)
+def _use_dify_hearing() -> bool:
+    return bool(DIFY_HEARING_API_KEY and DIFY_BASE_URL)
+
+
+def _use_dify_optimize() -> bool:
+    return bool(DIFY_OPTIMIZE_API_KEY and DIFY_BASE_URL)
+
+
+def _extract_json_from_answer(answer: str) -> Optional[dict]:
+    """Dify の返答から ```json ブロックを抽出してパースする"""
+    pattern = r'```json\s*([\s\S]*?)\s*```'
+    match = re.search(pattern, answer)
+    if match:
+        try:
+            return json.loads(match.group(1))
+        except json.JSONDecodeError:
+            pass
+    # フォールバック: 生の JSON を探す
+    try:
+        start: int = answer.index("{")
+        end: int = answer.rindex("}") + 1
+        return json.loads(answer[start:end])
+    except (ValueError, json.JSONDecodeError):
+        return None
+
+
+def _clean_answer_for_display(answer: str) -> str:
+    """返答から JSON ブロックを除去して表示用テキストを返す"""
+    cleaned: str = re.sub(r'```json\s*[\s\S]*?\s*```', '', answer).strip()
+    return cleaned if cleaned else answer
 
 
 def _save_messages(engineer_id: str, theme: str, messages: list[dict], conversation_id: str, completed: bool) -> None:
@@ -160,7 +194,7 @@ async def chat(body: ChatRequest, request: Request) -> dict:
     now: str = datetime.datetime.now().isoformat()
     messages.append({"role": "user", "content": message, "timestamp": now})
 
-    if _use_dify():
+    if _use_dify_hearing():
         return await _dify_chat(engineer_id, theme, message, messages, conversation_id)
     else:
         return _mock_chat(engineer_id, theme, messages, conversation_id)
@@ -212,10 +246,10 @@ async def _dify_chat(engineer_id: str, theme: str, user_message: str, messages: 
         "response_mode": "blocking",
         "user": engineer_id,
     }
-    headers: dict = {"Authorization": f"Bearer {DIFY_API_KEY}"}
+    headers: dict = {"Authorization": f"Bearer {DIFY_HEARING_API_KEY}"}
 
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(f"{DIFY_BASE_URL}/v1/chat-messages", json=payload, headers=headers)
 
         if resp.status_code >= 500:
@@ -237,19 +271,18 @@ async def _dify_chat(engineer_id: str, theme: str, user_message: str, messages: 
 
     answer: str = data.get("answer", "")
     conv_id: str = data.get("conversation_id", conversation_id)
-    theme_completed: bool = "theme_completed: true" in answer or "theme_completed:true" in answer
 
-    messages.append({"role": "assistant", "content": answer, "timestamp": now})
+    # ```json ブロックから構造化データを抽出
+    parsed: Optional[dict] = _extract_json_from_answer(answer)
+    theme_completed: bool = bool(parsed and parsed.get("theme_completed"))
+
+    # 表示用テキスト（JSONブロックを除去）
+    display_message: str = _clean_answer_for_display(answer)
+    messages.append({"role": "assistant", "content": display_message, "timestamp": now})
 
     sheet_update: Optional[dict] = None
-    if theme_completed:
-        extracted: dict = {}
-        try:
-            start: int = answer.index("{")
-            end: int = answer.rindex("}") + 1
-            extracted = json.loads(answer[start:end])
-        except (ValueError, json.JSONDecodeError):
-            extracted = {"raw_answer": answer}
+    if theme_completed and parsed:
+        extracted: dict = parsed.get("extracted_data", parsed)
         _save_messages(engineer_id, theme, messages, conv_id, completed=True)
         _save_sheet(engineer_id, theme, extracted)
         sheet_update = {"theme": theme, "data": extracted}
@@ -257,7 +290,7 @@ async def _dify_chat(engineer_id: str, theme: str, user_message: str, messages: 
         _save_messages(engineer_id, theme, messages, conv_id, completed=False)
 
     return {
-        "message": answer,
+        "message": display_message,
         "theme_completed": theme_completed,
         "conversation_id": conv_id,
         "sheet_update": sheet_update,
@@ -283,7 +316,7 @@ async def optimize(body: OptimizeRequest, request: Request) -> dict:
     for r in rows:
         raw_map[r["theme"]] = json.loads(r["raw_data"]) if r["raw_data"] else {}
 
-    if _use_dify():
+    if _use_dify_optimize():
         optimized: dict = await _dify_optimize(engineer_id, raw_map)
     else:
         optimized = raw_map
@@ -313,10 +346,10 @@ async def _dify_optimize(engineer_id: str, raw_map: dict[str, dict]) -> dict:
         "response_mode": "blocking",
         "user": engineer_id,
     }
-    headers: dict = {"Authorization": f"Bearer {DIFY_API_KEY}"}
+    headers: dict = {"Authorization": f"Bearer {DIFY_OPTIMIZE_API_KEY}"}
 
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(f"{DIFY_BASE_URL}/v1/workflows/run", json=payload, headers=headers)
 
         if resp.status_code >= 500:
