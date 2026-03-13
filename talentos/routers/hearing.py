@@ -385,6 +385,7 @@ async def _dify_chat_stream(engineer_id: str, theme: str, user_message: str, mes
                 buffer: str = ""
                 stream_ended: bool = False
                 async for chunk in resp.aiter_text():
+                    print(f"[DEBUG] chunk: {chunk[:100]}")  # ← これを追加
                     if stream_ended:
                         break
                     buffer += chunk
@@ -430,7 +431,25 @@ async def _dify_chat_stream(engineer_id: str, theme: str, user_message: str, mes
 
                         elif event_type == "message_end":
                             conv_id = event_data.get("conversation_id", conv_id)
+                            print(f"[DEBUG] message_end conv_id: {conv_id}")
                             # 即座にDB保存・done送信（httpxクリーンアップ前に）
+                            display_message = _clean_answer_for_display(full_answer)
+                            parsed = _extract_json_from_answer(full_answer)
+                            theme_completed = bool(parsed and parsed.get("theme_completed"))
+                            messages.append({"role": "assistant", "content": display_message, "timestamp": now})
+                            sheet_update = None
+                            if theme_completed and parsed:
+                                extracted = parsed.get("extracted_data", parsed)
+                                _save_messages(engineer_id, theme, messages, conv_id, completed=True)
+                                _save_sheet(engineer_id, theme, extracted)
+                                sheet_update = {"theme": theme, "data": extracted}
+                            else:
+                                _save_messages(engineer_id, theme, messages, conv_id, completed=False)
+                            yield f"data: {json.dumps({'type': 'done', 'conversation_id': conv_id, 'theme_completed': theme_completed, 'sheet_update': sheet_update}, ensure_ascii=False)}\n\n"
+                            stream_ended = True
+                            break
+                        elif event_type == "workflow_finished":
+                            conv_id = event_data.get("conversation_id", conv_id)
                             display_message = _clean_answer_for_display(full_answer)
                             parsed = _extract_json_from_answer(full_answer)
                             theme_completed = bool(parsed and parsed.get("theme_completed"))
