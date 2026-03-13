@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>アクセス制限 - TalentOS</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <style>
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: var(--surface-1);
+    }
+    .forbidden-card {
+      background: var(--surface-0); border: 1px solid var(--border); border-radius: 12px;
+      padding: 40px 36px 32px; width: 100%; max-width: 440px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.06); text-align: center;
+    }
+    .forbidden-icon { font-size: 48px; margin-bottom: 16px; }
+    .forbidden-title { font-size: 18px; font-weight: 600; color: var(--text-primary); margin: 0 0 8px; }
+    .forbidden-msg { font-size: 14px; color: var(--text-secondary); margin: 0 0 24px; }
+    .forbidden-btn {
+      display: inline-block; padding: 10px 24px; border: none; border-radius: 8px;
+      background: linear-gradient(135deg, var(--orange-500), var(--red-600));
+      color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+      text-decoration: none; transition: opacity .15s;
+    }
+    .forbidden-btn:hover { opacity: .9; }
+  </style>
+</head>
+<body>
+  <div class="forbidden-card">
+    <div class="forbidden-icon">&#128274;</div>
+    <h2 class="forbidden-title">このページにはアクセス権限がありません</h2>
+    <p class="forbidden-msg">ロール「{{ user.role }}」ではこのページを表示できません。</p>
+    <a class="forbidden-btn" href="/top">トップページへ戻る</a>
+  </div>
+</body>
+</html>

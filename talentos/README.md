@@ -1,0 +1,58 @@
+# TalentOS
+
+IT人材派遣会社向け社内Webアプリ
+
+## 起動方法
+
+1. `talentos` ディレクトリに移動
+
+   ```
+   cd talentos
+   ```
+
+2. 依存パッケージのインストール
+
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. 環境変数の設定
+
+   `.env` ファイルを作成し、以下を設定：
+
+   ```
+   SECRET_KEY=（セッション暗号化用の任意の文字列）
+   DIFY_BASE_URL=https://api.dify.ai
+   DIFY_HEARING_API_KEY=（ヒアリングチャット用。未設定でモック動作）
+   DIFY_OPTIMIZE_API_KEY=（スキルシート最適化用。未設定でモック動作）
+   DIFY_SEARCH_API_KEY=（人材検索クエリ解析用。未設定でモック動作）
+   API_KEY=（外部サービス向けAPIキー認証。任意）
+   ```
+
+4. 起動
+
+   ```
+   uvicorn main:app --reload
+   ```
+
+5. アクセス
+
+   http://localhost:8000/login
+
+## テスト用アカウント
+
+| ユーザーID | パスワード | ロール |
+|-----------|-----------|-------|
+| engineer01 | pass123 | エンジニア |
+| sales01 | pass123 | 営業 |
+| admin01 | admin123 | 管理者 |
+
+## 画面構成
+
+| URL | 画面名 | アクセス可能なロール |
+|-----|--------|-------------------|
+| /login | ログイン | 全員 |
+| /hearing | AIヒアリング | エンジニア・管理者 |
+| /skillsheet | スキルシート | エンジニア・営業・管理者 |
+| /search | 人材検索 | 営業・管理者 |
+| /users | ユーザー管理 | 管理者のみ |

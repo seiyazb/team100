@@ -1,11 +1,13 @@
 """SQLite 接続・初期化"""
 
+from __future__ import annotations
+
 import sqlite3
 import os
 from passlib.hash import bcrypt
 from db.models import TABLES
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "talentos.db")
+DB_PATH: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "talentos.db")
 
 
 def get_connection() -> sqlite3.Connection:
@@ -15,7 +17,7 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
-def init_db():
+def init_db() -> None:
     conn = get_connection()
     cur = conn.cursor()
 
@@ -23,7 +25,7 @@ def init_db():
         cur.execute(sql)
 
     # 初期ユーザー
-    seed_users = [
+    seed_users: list[tuple[str, str, str, str]] = [
         ("admin01", "admin123", "管理者", "admin"),
         ("engineer01", "pass123", "山田 太郎", "engineer"),
         ("sales01", "pass123", "佐藤 花子", "sales"),

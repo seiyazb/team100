@@ -3,7 +3,18 @@
     "allow": [
       "Bash(curl:*)",
       "Bash(# Create user echo ''{\"\"user_id\"\":\"\"engineer02\"\",\"\"name\"\":\"\"鈴木 次郎\"\",\"\"role\"\":\"\"engineer\"\",\"\"password\"\":\"\"pass123\"\"}'' curl -s -b /tmp/cookies.txt -X POST http://127.0.0.1:8003/api/users -H \"\"Content-Type: application/json\"\" -d @/tmp/p.json echo \"\"\"\" # Verify 4 users curl -s -b /tmp/cookies.txt http://127.0.0.1:8003/api/users)",
-      "Bash(python -c:*)"
+      "Bash(python -c:*)",
+      "Bash(tasklist:*)",
+      "Bash(netstat:*)",
+      "Bash(ss:*)",
+      "Bash(taskkill:*)",
+      "Bash(kill:*)",
+      "Bash(wmic:*)",
+      "Bash(for pid in 31104 30008 13576 7136 34092 39088 29304 9532)",
+      "Bash(do echo \"PID $pid:\")",
+      "Bash(done)",
+      "Bash(for i in 1 2 3 4 5)",
+      "Bash(do curl -s -b /tmp/talentos_test3 -w \"HTTP:%{http_code} \" -o /dev/null http://localhost:8000/doc)"
     ]
   }
 }

@@ -21,7 +21,7 @@ def _get_serializer(request: Request) -> URLSafeTimedSerializer:
 
 
 @router.post("/login")
-def login(body: LoginRequest, request: Request, response: Response):
+async def login(body: LoginRequest, request: Request, response: Response) -> dict:
     conn = get_connection()
     row = conn.execute(
         "SELECT user_id, password_hash, name, role FROM users WHERE user_id = ?",
@@ -44,14 +44,14 @@ def login(body: LoginRequest, request: Request, response: Response):
         value=token,
         httponly=True,
         max_age=8 * 60 * 60,  # 8時間
-        samesite="lax",
+        samesite="strict",
     )
 
     return {"success": True, "role": row["role"], "name": row["name"]}
 
 
 @router.post("/logout")
-def logout(response: Response):
+async def logout(response: Response) -> dict:
     response.delete_cookie("session")
     response.status_code = 302
     response.headers["Location"] = "/login"

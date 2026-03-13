@@ -1,5 +1,7 @@
 """ユーザー管理（管理者用）"""
 
+from __future__ import annotations
+
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 from passlib.hash import bcrypt
@@ -10,7 +12,7 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 
 @router.get("")
-def list_users(request: Request):
+async def list_users(request: Request) -> list[dict]:
     user = request.state.user
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="管理者のみアクセスできます")
@@ -30,7 +32,7 @@ class CreateUserRequest(BaseModel):
 
 
 @router.post("")
-def create_user(body: CreateUserRequest, request: Request):
+async def create_user(body: CreateUserRequest, request: Request) -> dict:
     user = request.state.user
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="管理者のみアクセスできます")
@@ -45,7 +47,7 @@ def create_user(body: CreateUserRequest, request: Request):
         conn.close()
         raise HTTPException(status_code=409, detail="このユーザーIDは既に使用されています")
 
-    password_hash = bcrypt.hash(body.password)
+    password_hash: str = bcrypt.hash(body.password)
     conn.execute(
         "INSERT INTO users (user_id, password_hash, name, role) VALUES (?, ?, ?, ?)",
         (body.user_id, password_hash, body.name, body.role),
