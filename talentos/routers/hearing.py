@@ -383,7 +383,10 @@ async def _dify_chat_stream(engineer_id: str, theme: str, user_message: str, mes
                     return
 
                 buffer: str = ""
+                stream_ended: bool = False
                 async for chunk in resp.aiter_text():
+                    if stream_ended:
+                        break
                     buffer += chunk
                     while "\n\n" in buffer:
                         event_str, buffer = buffer.split("\n\n", 1)
@@ -427,6 +430,8 @@ async def _dify_chat_stream(engineer_id: str, theme: str, user_message: str, mes
 
                         elif event_type == "message_end":
                             conv_id = event_data.get("conversation_id", conv_id)
+                            stream_ended = True
+                            break
 
     except httpx.TimeoutException:
         yield f"data: {json.dumps({'type': 'token', 'content': 'AIの応答がタイムアウトしました。再度お試しください。'}, ensure_ascii=False)}\n\n"
