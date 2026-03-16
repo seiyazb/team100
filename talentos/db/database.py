@@ -37,5 +37,15 @@ def init_db() -> None:
             (user_id, bcrypt.hash(password), name, role),
         )
 
+    # engineer01 の engineers レコードも作成（既存コードとの互換性）
+    cur.execute(
+        "INSERT OR IGNORE INTO engineers (engineer_id, specialty) VALUES (?, ?)",
+        ("engineer01", ""),
+    )
+
     conn.commit()
     conn.close()
+
+    # テスト用エンジニア30名を投入
+    from db.seed_data import insert_seed_engineers
+    insert_seed_engineers()

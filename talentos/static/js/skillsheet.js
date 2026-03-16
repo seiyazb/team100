@@ -46,12 +46,27 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 // --- データ読み込み ---
+function _getTargetEngineerId() {
+  // 1. テンプレートから渡された値を優先
+  if (window.__TARGET_ENGINEER_ID__) return window.__TARGET_ENGINEER_ID__;
+  // 2. URLクエリパラメータから取得（検索結果からの遷移対応）
+  var params = new URLSearchParams(window.location.search);
+  var qid = params.get("engineer_id");
+  if (qid) return qid;
+  // 3. ログインユーザー自身
+  return window.__USER__.user_id;
+}
+
 async function loadSkillSheet() {
-  var engineerId = window.__TARGET_ENGINEER_ID__ || window.__USER__.user_id;
+  var engineerId = _getTargetEngineerId();
   try {
-    var res = await fetch("/api/skillsheet/" + engineerId);
+    var res = await fetch("/api/skillsheet/" + encodeURIComponent(engineerId));
     if (res.status === 404) {
       ssBasicInfo.innerHTML = '<tr><td colspan="4" class="ss-placeholder">まだヒアリングが完了していません。AIヒアリング画面でデータを作成してください。</td></tr>';
+      return;
+    }
+    if (!res.ok) {
+      ssBasicInfo.innerHTML = '<tr><td colspan="4" class="ss-placeholder">データの取得に失敗しました。（' + res.status + '）</td></tr>';
       return;
     }
     ssState.data = await res.json();
@@ -323,7 +338,7 @@ async function saveSheet() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        engineer_id: window.__TARGET_ENGINEER_ID__ || window.__USER__.user_id,
+        engineer_id: _getTargetEngineerId(),
         basic: ssState.data.basic || null,
         career: ssState.data.career || null,
         skills: ssState.data.skills || null,
@@ -359,7 +374,7 @@ function showToast(msg) {
 
 // --- PDF ---
 function downloadPdf() {
-  var engineerId = window.__TARGET_ENGINEER_ID__ || window.__USER__.user_id;
+  var engineerId = _getTargetEngineerId();
   window.open("/api/skillsheet/" + engineerId + "/pdf", "_blank");
 }
 

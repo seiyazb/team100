@@ -64,13 +64,23 @@ def _search_engineers(keywords: list[str]) -> list[dict]:
         for s in sheets:
             raw: dict = json.loads(s["raw_data"]) if s["raw_data"] else {}
             if s["theme"] == "career":
-                ts = raw.get("tech_stack", [])
-                if isinstance(ts, list):
-                    all_skills.extend(ts)
-                latest_role = raw.get("role_title", "")
-                exp_summary = raw.get("description", "")
+                # experiences 配列内のネストデータを展開
+                career_entries: list[dict] = []
+                if isinstance(raw.get("experiences"), list):
+                    career_entries = raw["experiences"]
+                elif raw.get("project_name"):
+                    career_entries = [raw]
+
+                for entry in career_entries:
+                    ts = entry.get("tech_stack", [])
+                    if isinstance(ts, list):
+                        all_skills.extend(ts)
+                    if not latest_role:
+                        latest_role = entry.get("role_title", "")
+                    if not exp_summary:
+                        exp_summary = entry.get("description", "")
             elif s["theme"] == "skills":
-                for key in ("tools", "certifications"):
+                for key in ("tools", "tool_info", "certifications"):
                     items = raw.get(key, [])
                     if isinstance(items, list):
                         all_skills.extend(items)
