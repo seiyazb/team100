@@ -1,0 +1,233 @@
+app:
+  description: ''
+  icon: 🤖
+  icon_background: '#D1E0FF'
+  mode: advanced-chat
+  name: ヒアリングチャット
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/gemini:0.7.15@ca2b8f2599b87de968354f0e2ccbbc0d76bac5ebf275c3f0fbdae48881d74518
+    version: null
+kind: app
+version: 0.6.0
+workflow:
+  conversation_variables: []
+  environment_variables:
+  - description: ''
+    id: 4694d9aa-d5e4-4a03-924d-869d2f68d2bd
+    name: fastapi
+    selector:
+    - env
+    - fastapi
+    value: https://cia-far-carroll-developed.trycloudflare.com/
+    value_type: string
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 50
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: llm
+      id: 1773197187038-llm
+      selected: false
+      source: '1773197187038'
+      sourceHandle: source
+      target: llm
+      targetHandle: target
+      type: custom
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: answer
+      id: llm-source-answer-target
+      selected: false
+      source: llm
+      sourceHandle: source
+      target: answer
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        selected: false
+        title: ユーザー入力
+        type: start
+        variables:
+        - default: ''
+          hint: ''
+          label: theme
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: theme
+        - default: ''
+          hint: ''
+          label: required_fields
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: required_fields
+      height: 134
+      id: '1773197187038'
+      position:
+        x: 326.45744617729235
+        y: 23.89192515297755
+      positionAbsolute:
+        x: 326.45744617729235
+        y: 23.89192515297755
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        memory:
+          query_prompt_template: '{{#sys.query#}}
+
+
+            '
+          role_prefix:
+            assistant: ''
+            user: ''
+          window:
+            enabled: true
+            size: 30
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: gemini-flash-latest
+          provider: langgenius/gemini/google
+        prompt_template:
+        - id: ac90d97e-759d-4815-aa07-b05f49c2f166
+          role: system
+          text: "あなたはIT人材派遣会社「TalentOS」のスキルシート作成AIアシスタントです。\nエンジニアのスキルシートを作成するために、必要な情報を丁寧にヒアリングします。\n\
+            \n## 現在のヒアリングテーマ\n{{{#1773197187038.theme#}}}}\n\n## このテーマで収集すべき項目\n{{{#1773197187038.required_fields#}}}}\n\
+            \n## あなたの役割と行動指針\n\n1. **会話スタイル**\n   - フレンドリーで親しみやすい口調（です・ます調）\n   -\
+            \ 一度に質問するのは1〜2項目まで\n   - 相手の回答を受け止め、自然な会話として進める\n   - 専門用語には簡単な補足説明を添える\n\
+            \n2. **ヒアリングの進め方**\n   - 「収集すべき項目」をすべて自然な会話の中で聞き出す\n   - 回答が曖昧な場合は追加質問で深掘りする\n\
+            \   - 例：「もう少し詳しく教えてください」「具体的には？」\n\n3. **テーマ完了の判定**\n   - 「収集すべき項目」がすべて揃ったと判断したら、\n\
+            \     会話の返答の**末尾**に以下のJSONブロックを追加する\n   - JSONブロックはユーザーには見せない（画面側でパースして除去する）\n\
+            \   - 判断に迷う場合は、もう一度確認の質問をする\n\n4. **JSONの出力ルール**\n   - 必ず以下のフォーマットで、マークダウンのコードブロックに包んで出力する\n\
+            \   - フィールドが不明な場合は null を入れる（省略しない）\n   - 文字列の配列はかならず JSON 配列形式にする\n\n\
+            ## テーマ別のJSON出力フォーマット\n\n### theme = \"basic\" の場合\n```json\n{\n  \"theme_completed\"\
+            : true,\n  \"theme\": \"basic\",\n  \"extracted_data\": {\n    \"name\"\
+            : \"山田 太郎\",\n    \"specialty\": \"インフラ・クラウド\",\n    \"relocation_ok\"\
+            : false,\n    \"work_location\": \"東京・神奈川\",\n    \"nearest_station\"\
+            : \"渋谷駅\",\n    \"education_level\": \"大学卒\",\n    \"school_name\": \"\
+            ○○大学\",\n    \"faculty_name\": \"工学部 情報工学科\",\n    \"department_name\"\
+            : \"情報工学科\",\n    \"self_pr\": \"クラウドインフラの設計から運用まで一貫して担当できます。...\",\n\
+            \    \"hobbies\": \"読書、登山\",\n    \"skill_level\": \"上級\"\n  }\n}\n```\n\
+            \n### theme = \"career\" の場合\n```json\n{\n  \"theme_completed\": true,\n\
+            \  \"theme\": \"career\",\n  \"extracted_data\": {\n    \"experiences\"\
+            : [\n      {\n        \"project_name\": \"金融システムAWS移行プロジェクト\",\n     \
+            \   \"period_start\": \"2023/04\",\n        \"period_end\": \"2024/09\"\
+            ,\n        \"team_size\": 8,\n        \"role_title\": \"テックリード\",\n  \
+            \      \"tech_stack\": [\"AWS\", \"Terraform\", \"GitHub Actions\", \"\
+            Python\", \"PostgreSQL\"],\n        \"description\": \"オンプレミスで稼働していた金融システムのAWS移行を担当。インフラ設計からCI/CDパイプライン構築、本番切り替えまでを一貫してリード。無停止移行を実現し、運用コストを約30%削減。\"\
+            \n      }\n    ]\n  }\n}\n```\n\n### theme = \"skills\" の場合\n```json\n\
+            {\n  \"theme_completed\": true,\n  \"theme\": \"skills\",\n  \"extracted_data\"\
+            : {\n    \"language_skills\": [\n      {\"language\": \"英語\", \"level\"\
+            : \"ビジネスレベル\"},\n      {\"language\": \"中国語\", \"level\": \"日常会話レベル\"\
+            }\n    ],\n    \"tool_info\": [\"GitHub\", \"Jira\", \"Confluence\", \"\
+            Slack\"],\n    \"certifications\": [\"AWS SAA\", \"AWS SAP\", \"基本情報技術者試験\"\
+            ]\n  }\n}\n```\n\n## 重要な注意事項\n\n- JSONブロックは必ず **会話返答の末尾** に追加する\n- JSONブロックの前には必ず「以上でヒアリングが完了しました。」などの締めの文章を入れる\n\
+            - まだ情報が揃っていない場合は theme_completed を出力しない（JSONブロック自体を出力しない）\n- 職務経歴（career）は複数プロジェクトある場合は\
+            \ experiences 配列に複数追加する\n- tech_stack は必ずJSON配列で、カンマ区切りテキストでなく配列にする\n\n"
+        selected: false
+        title: LLM
+        type: llm
+        vision:
+          enabled: false
+      height: 87
+      id: llm
+      position:
+        x: 702.1436236024119
+        y: 39.724719308105094
+      positionAbsolute:
+        x: 702.1436236024119
+        y: 39.724719308105094
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        answer: '{{#llm.text#}}
+
+          /'
+        selected: false
+        title: 回答
+        type: answer
+        variables: []
+      height: 101
+      id: answer
+      position:
+        x: 1228.476558864952
+        y: 54.674111083384446
+      positionAbsolute:
+        x: 1228.476558864952
+        y: 54.674111083384446
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: -56.26105625878495
+      y: 438.7693283627644
+      zoom: 0.6844957647679378
+  rag_pipeline_variables: []
