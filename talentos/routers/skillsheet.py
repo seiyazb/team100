@@ -280,11 +280,9 @@ def _render_pdf_html(data: dict) -> str:
         'table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }'
         'th, td { border: 1px solid #999; padding: 5px 8px; vertical-align: top; font-size: 9.5pt; }'
         'th { background: #f0f0f0; font-weight: 600; white-space: nowrap; text-align: center; width: 100px; }'
-        /* セクション見出し */
         '.section-header { background: #2c3e50; color: #fff; font-size: 11pt; font-weight: 600;'
         '  padding: 6px 10px; letter-spacing: 2px; margin-top: 10px; margin-bottom: 0; }'
         '.section-header + table { margin-top: 0; }'
-        /* 職務経歴テーブル */
         '.career-table th { background: #f0f0f0; }'
         '.career-table .no { width: 30px; text-align: center; }'
         '.career-table .period { width: 110px; text-align: center; font-size: 9pt; white-space: nowrap; }'
@@ -295,13 +293,10 @@ def _render_pdf_html(data: dict) -> str:
         '.desc { font-size: 9pt; margin-bottom: 4px; line-height: 1.5; }'
         '.tech-row { font-size: 8.5pt; color: #444; }'
         '.tech-label { font-weight: 600; }'
-        /* スキルチップ */
         '.skill-chip { display: inline-block; background: #e8f4fd; border: 1px solid #b3d9f2;'
         '  border-radius: 3px; padding: 1px 8px; margin: 2px 3px; font-size: 8.5pt; }'
-        /* 自己PR */
         '.pr-box { border: 1px solid #999; padding: 8px 10px; font-size: 9.5pt; line-height: 1.7;'
         '  min-height: 40px; margin-bottom: 14px; }'
-        /* 語学テーブル */
         '.lang-table { width: auto; min-width: 300px; }'
         '.lang-table th { width: 120px; }'
         '</style></head><body>'
