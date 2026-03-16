@@ -44,6 +44,9 @@ def _extract_keywords(query: str) -> list[str]:
 
 
 def _search_engineers(keywords: list[str]) -> list[dict]:
+    if not keywords:
+        return []
+
     conn = get_connection()
     engineers = conn.execute(
         "SELECT u.user_id, u.name, e.specialty "
@@ -133,11 +136,14 @@ async def do_search(body: SearchRequest, request: Request) -> dict:
 
     keywords: list[str] = _extract_keywords(query)
     results: list[dict] = _search_engineers(keywords)
-    kw_text: str = "・".join(keywords) if keywords else query
-    ai_insight: str = (
-        kw_text + "に関連するエンジニアを検索しました。"
-        + str(len(results)) + "件の結果が見つかりました。"
-    )
+    if not keywords:
+        ai_insight = "技術キーワードが検出できませんでした。技術名（例: Python, AWS, React）を含めて検索してください。"
+    else:
+        kw_text: str = "・".join(keywords)
+        ai_insight = (
+            kw_text + "に関連するエンジニアを検索しました。"
+            + str(len(results)) + "件の結果が見つかりました。"
+        )
     return {"ai_insight": ai_insight, "results": results}
 
 
