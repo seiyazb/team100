@@ -51,6 +51,46 @@ def _extract_keywords(query: str) -> list[str]:
     return found
 
 
+def _parse_dify_result(result_raw) -> dict:
+    """Dify の outputs.text を安全にパースする。
+
+    対応形式:
+      - dict（そのまま返す）
+      - JSON文字列
+      - ```json ... ``` マークダウンコードブロック付き文字列
+      - 空文字・不正JSON（空 dict を返す）
+    """
+    if isinstance(result_raw, dict):
+        return result_raw
+    if not isinstance(result_raw, str) or not result_raw.strip():
+        return {}
+    text = result_raw.strip()
+    # Markdown コードブロック除去
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    try:
+        parsed = json.loads(text)
+        return parsed if isinstance(parsed, dict) else {}
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return {}
+
+
+def _normalize_skills(raw_skills: list) -> list[str]:
+    """skills を文字列リストに正規化する。
+
+    対応形式:
+      - ["Python", "AWS"]           → そのまま
+      - [{"name": "Python"}, ...]   → name を抽出
+    """
+    result: list[str] = []
+    for s in raw_skills:
+        if isinstance(s, str):
+            result.append(s)
+        elif isinstance(s, dict) and "name" in s:
+            result.append(s["name"])
+    return result
+
+
 def _search_engineers(keywords: list[str]) -> list[dict]:
     if not keywords:
         return []
@@ -191,25 +231,19 @@ async def _dify_search(query: str, request: Request) -> dict:
 
         data: dict = resp.json()
         outputs: dict = data.get("data", {}).get("outputs", {})
-        result_raw = outputs.get("result", "{}")
+        result_raw = outputs.get("text", "{}")
         logger.info("[Dify parse] outputs=%s", json.dumps(outputs, ensure_ascii=False))
         logger.info("[Dify parse] result_raw type=%s, value=%s", type(result_raw).__name__, result_raw)
 
-        try:
-            parsed: dict = json.loads(result_raw) if isinstance(result_raw, str) else result_raw if isinstance(result_raw, dict) else {}
-        except (json.JSONDecodeError, TypeError):
-            parsed = {}
+        parsed = _parse_dify_result(result_raw)
         logger.info("[Dify parse] parsed=%s", json.dumps(parsed, ensure_ascii=False) if isinstance(parsed, dict) else str(parsed))
 
         ai_insight: str = parsed.get("ai_insight", "検索結果です。")
         # skills はトップレベルまたは conditions 内のどちらにも対応
         raw_skills = parsed.get("skills", []) or parsed.get("conditions", {}).get("skills", [])
         logger.info("[Dify parse] raw_skills=%s", raw_skills)
-        # Dify returns skills as [{"name": "Python", ...}, ...] — extract names
-        keywords = [
-            s["name"] if isinstance(s, dict) and "name" in s else str(s)
-            for s in raw_skills
-        ]
+        # skills が ["Python"] または [{"name":"Python"}] の両方に対応
+        keywords = _normalize_skills(raw_skills)
         logger.info("[Dify search] keywords=%s", keywords)
         results = _search_engineers(keywords)
         logger.info("[Dify search] results count=%d", len(results))
