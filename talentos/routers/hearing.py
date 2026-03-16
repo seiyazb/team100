@@ -385,7 +385,7 @@ async def _dify_chat_stream(engineer_id: str, theme: str, user_message: str, mes
                 buffer: str = ""
                 stream_ended: bool = False
                 async for chunk in resp.aiter_text():
-                    print(f"[DEBUG] chunk: {chunk[:100]}")  # ← これを追加
+                    # print(f"[DEBUG] chunk: {chunk[:100]}")
                     if stream_ended:
                         break
                     buffer += chunk
@@ -431,7 +431,7 @@ async def _dify_chat_stream(engineer_id: str, theme: str, user_message: str, mes
 
                         elif event_type == "message_end":
                             conv_id = event_data.get("conversation_id", conv_id)
-                            print(f"[DEBUG] message_end conv_id: {conv_id}")
+                            #print(f"[DEBUG] message_end conv_id: {conv_id}")
                             # 即座にDB保存・done送信（httpxクリーンアップ前に）
                             display_message = _clean_answer_for_display(full_answer)
                             parsed = _extract_json_from_answer(full_answer)

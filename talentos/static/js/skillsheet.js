@@ -51,13 +51,13 @@ async function loadSkillSheet() {
   try {
     var res = await fetch("/api/skillsheet/" + engineerId);
     if (res.status === 404) {
-      ssBasicInfo.innerHTML = '<p class="ss-placeholder">まだヒアリングが完了していません。AIヒアリング画面でデータを作成してください。</p>';
+      ssBasicInfo.innerHTML = '<tr><td colspan="4" class="ss-placeholder">まだヒアリングが完了していません。AIヒアリング画面でデータを作成してください。</td></tr>';
       return;
     }
     ssState.data = await res.json();
     renderPreview();
   } catch (e) {
-    ssBasicInfo.innerHTML = '<p class="ss-placeholder">データの読み込みに失敗しました。</p>';
+    ssBasicInfo.innerHTML = '<tr><td colspan="4" class="ss-placeholder">データの読み込みに失敗しました。</td></tr>';
   }
 }
 
@@ -66,77 +66,97 @@ function renderPreview() {
   var d = ssState.data;
   if (!d) return;
 
-  // 基本情報
+  // --- 基本情報テーブル ---
   var basic = d.basic || {};
-  var basicHtml = "";
-  var fields = [
-    ["氏名", d.name],
-    ["専門分野", d.specialty || basic.specialty],
-    ["最終学歴", [basic.school_name, basic.faculty_name].filter(Boolean).join(" ")],
-    ["勤務地", basic.work_location],
-    ["最寄駅", basic.nearest_station],
-    ["スキルレベル", basic.skill_level],
-    ["自己PR", basic.self_pr],
-  ];
-  fields.forEach(function (f) {
-    if (f[1]) {
-      basicHtml +=
-        '<div class="ss-info-row">' +
-          '<span class="ss-info-label">' + ssEsc(f[0]) + '：</span>' +
-          '<span class="ss-info-value">' + ssEsc(f[1]) + '</span>' +
-        '</div>';
-    }
-  });
-  ssBasicInfo.innerHTML = basicHtml || '<p class="ss-placeholder">基本情報なし</p>';
+  var school = [basic.school_name, basic.faculty_name, basic.department_name].filter(Boolean).join(" ");
+  var relocation = "";
+  if (basic.relocation_ok === true || basic.relocation_ok === 1) relocation = "可";
+  else if (basic.relocation_ok === false || basic.relocation_ok === 0) relocation = "不可";
+  else relocation = "―";
 
-  // 主要スキル
+  var basicHtml =
+    '<tr><th>氏名</th><td colspan="3">' + ssEsc(d.name) + '</td></tr>' +
+    '<tr><th>専門分野</th><td>' + ssEsc(d.specialty || basic.specialty || "") + '</td>' +
+        '<th>スキルレベル</th><td>' + ssEsc(basic.skill_level || "") + '</td></tr>' +
+    '<tr><th>最終学歴</th><td colspan="3">' + ssEsc(school) + '</td></tr>' +
+    '<tr><th>勤務地</th><td>' + ssEsc(basic.work_location || "") + '</td>' +
+        '<th>最寄駅</th><td>' + ssEsc(basic.nearest_station || "") + '</td></tr>' +
+    '<tr><th>転勤</th><td>' + relocation + '</td>' +
+        '<th>趣味・特技</th><td>' + ssEsc(basic.hobbies || "") + '</td></tr>';
+  ssBasicInfo.innerHTML = basicHtml;
+
+  // --- 資格 ---
+  var sk = d.skills || {};
+  var certs = sk.certifications || [];
+  var certsEl = document.getElementById("ss-certs");
+  if (certsEl) {
+    certsEl.textContent = certs.length > 0 ? certs.join("、") : "―";
+  }
+
+  // --- 語学力 ---
+  var langs = sk.language_skills || [];
+  var langsEl = document.getElementById("ss-langs");
+  if (langsEl) {
+    if (langs.length > 0) {
+      var langsHtml = "";
+      langs.forEach(function (lg) {
+        langsHtml += '<tr><td>' + ssEsc(lg.language || "") + '</td><td>' + ssEsc(lg.level || "") + '</td></tr>';
+      });
+      langsEl.innerHTML = langsHtml;
+    } else {
+      langsEl.innerHTML = '<tr><td colspan="2">―</td></tr>';
+    }
+  }
+
+  // --- 技術スキル ---
   var allSkills = [];
   (d.career || []).forEach(function (c) {
     (c.tech_stack || []).forEach(function (t) {
       if (allSkills.indexOf(t) === -1) allSkills.push(t);
     });
   });
-  var sk = d.skills || {};
-  (sk.tools || []).forEach(function (t) { if (allSkills.indexOf(t) === -1) allSkills.push(t); });
-  (sk.certifications || []).forEach(function (t) { if (allSkills.indexOf(t) === -1) allSkills.push(t); });
+  (sk.tools || sk.tool_info || []).forEach(function (t) { if (allSkills.indexOf(t) === -1) allSkills.push(t); });
 
   if (allSkills.length > 0) {
     ssSkillTags.innerHTML = allSkills.map(function (s) {
-      return '<span class="ss-skill-tag">' + ssEsc(s) + '</span>';
+      return '<span class="ss-skill-chip">' + ssEsc(s) + '</span>';
     }).join("");
   } else {
     ssSkillTags.innerHTML = '<p class="ss-placeholder">ヒアリング後に表示されます</p>';
   }
 
-  // 職務経歴
+  // --- 自己PR ---
+  var prEl = document.getElementById("ss-self-pr");
+  if (prEl) {
+    prEl.textContent = basic.self_pr || "―";
+  }
+
+  // --- 職務経歴 ---
   var careers = d.career || [];
   if (careers.length > 0) {
     var html = "";
-    careers.forEach(function (c) {
-      var techs = (c.tech_stack || []).map(function (t) {
-        return '<span class="ss-tech-tag">' + ssEsc(t) + '</span>';
-      }).join("");
+    careers.forEach(function (c, i) {
+      var techs = (c.tech_stack || []).map(function (t) { return ssEsc(t); }).join("、");
+      var period = ssEsc(c.period_start || "") + " ～ " + ssEsc(c.period_end || "現在");
+      var team = c.team_size ? (c.team_size + "名") : "―";
       html +=
-        '<div class="ss-career-card">' +
-          '<div class="ss-career-top">' +
-            '<span class="ss-career-project">' + ssEsc(c.project_name || "") + '</span>' +
-            '<span class="ss-career-period">' + ssEsc(c.period_start || "") + ' 〜 ' + ssEsc(c.period_end || "") + '</span>' +
-          '</div>' +
-          '<div class="ss-career-meta">' +
-            '<span>&#128100; ' + ssEsc(c.role_title || "") + '</span>' +
-            '<span>&#128101; ' + (c.team_size || "—") + '名</span>' +
-          '</div>' +
-          '<div class="ss-career-techs">' + techs + '</div>' +
-          '<div class="ss-career-desc">' + ssEsc(c.description || "") + '</div>' +
-        '</div>';
+        '<tr>' +
+          '<td class="ss-col-no">' + (i + 1) + '</td>' +
+          '<td class="ss-col-period">' + period + '</td>' +
+          '<td>' +
+            '<div class="ss-career-project">【' + ssEsc(c.project_name || "") + '】</div>' +
+            '<div class="ss-career-meta">役割：' + ssEsc(c.role_title || "―") + '／規模：' + team + '</div>' +
+            '<div class="ss-career-desc">' + ssEsc(c.description || "") + '</div>' +
+            '<div class="ss-career-tech"><b>使用技術：</b>' + (techs || "―") + '</div>' +
+          '</td>' +
+        '</tr>';
     });
-    html += '<div class="ss-career-adding">+ 経歴を追加中...</div>';
     ssCareerList.innerHTML = html;
   } else {
-    ssCareerList.innerHTML = '<p class="ss-placeholder">ヒアリング後に表示されます</p>';
+    ssCareerList.innerHTML = '<tr><td colspan="3" class="ss-placeholder">ヒアリング後に表示されます</td></tr>';
   }
 
-  // 最適化提案
+  // --- 最適化提案 ---
   var opt = d.optimized || {};
   if (Object.keys(opt).length > 0) {
     ssOptSection.style.display = "";
@@ -271,7 +291,12 @@ function updatePreviewFromChat(sheetUpdate) {
     ssState.data.basic = data;
     ssState.data.specialty = data.specialty || ssState.data.specialty;
   } else if (theme === "career") {
-    if (data.project_name) {
+    // experiences 配列がある場合は展開
+    if (data.experiences && Array.isArray(data.experiences)) {
+      data.experiences.forEach(function (exp) {
+        if (exp.project_name) ssState.data.career.push(exp);
+      });
+    } else if (data.project_name) {
       ssState.data.career.push(data);
     }
   } else if (theme === "skills") {
@@ -334,7 +359,7 @@ function showToast(msg) {
 
 // --- PDF ---
 function downloadPdf() {
-  var engineerId = window.__USER__.user_id;
+  var engineerId = window.__TARGET_ENGINEER_ID__ || window.__USER__.user_id;
   window.open("/api/skillsheet/" + engineerId + "/pdf", "_blank");
 }
 

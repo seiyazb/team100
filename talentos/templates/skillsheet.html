@@ -74,42 +74,61 @@
       </div>
 
       <div class="ss-preview-content" id="ss-preview-content">
-        <!-- 基本情報 -->
-        <div class="ss-section">
-          <div class="ss-section-title">基本情報</div>
-          <div class="ss-basic-info" id="ss-basic-info">
-            <p class="ss-placeholder">データを読み込み中...</p>
-          </div>
-        </div>
+        <!-- テーブル形式スキルシート -->
+        <div class="ss-sheet">
+          <h2 class="ss-sheet-title">スキルシート</h2>
 
-        <!-- 主要スキル -->
-        <div class="ss-section">
-          <div class="ss-section-header">
-            <span class="ss-section-title">主要スキル</span>
-            <span class="ai-opt-badge">AI最適化</span>
-          </div>
-          <div class="ss-skill-tags" id="ss-skill-tags">
+          <!-- 基本情報 -->
+          <div class="ss-tbl-header">基本情報</div>
+          <table class="ss-table" id="ss-basic-table">
+            <tbody id="ss-basic-info">
+              <tr><td colspan="4" class="ss-placeholder">データを読み込み中...</td></tr>
+            </tbody>
+          </table>
+
+          <!-- 保有資格 -->
+          <div class="ss-tbl-header">保有資格</div>
+          <table class="ss-table">
+            <tbody>
+              <tr><td id="ss-certs">―</td></tr>
+            </tbody>
+          </table>
+
+          <!-- 語学力 -->
+          <div class="ss-tbl-header">語学力</div>
+          <table class="ss-table" id="ss-lang-table">
+            <thead><tr><th>言語</th><th>レベル</th></tr></thead>
+            <tbody id="ss-langs">
+              <tr><td colspan="2">―</td></tr>
+            </tbody>
+          </table>
+
+          <!-- 技術スキル -->
+          <div class="ss-tbl-header">技術スキル</div>
+          <div class="ss-skill-box" id="ss-skill-tags">
             <p class="ss-placeholder">ヒアリング後に表示されます</p>
           </div>
-        </div>
 
-        <!-- 職務経歴 -->
-        <div class="ss-section">
-          <div class="ss-section-header">
-            <span class="ss-section-title">職務経歴</span>
-            <span class="ai-opt-badge">AI最適化</span>
-          </div>
-          <div class="ss-career-list" id="ss-career-list">
-            <p class="ss-placeholder">ヒアリング後に表示されます</p>
-          </div>
-        </div>
+          <!-- 自己PR -->
+          <div class="ss-tbl-header">自己PR</div>
+          <div class="ss-pr-box" id="ss-self-pr">―</div>
 
-        <!-- AI最適化提案 -->
-        <div class="ss-section" id="ss-optimization" style="display:none;">
-          <div class="ss-section-header">
-            <span class="ss-section-title">Proposals for Optimization</span>
+          <!-- 職務経歴 -->
+          <div class="ss-tbl-header">職務経歴</div>
+          <table class="ss-table ss-career-table">
+            <thead>
+              <tr><th class="ss-col-no">No.</th><th class="ss-col-period">期間</th><th>業務内容</th></tr>
+            </thead>
+            <tbody id="ss-career-list">
+              <tr><td colspan="3" class="ss-placeholder">ヒアリング後に表示されます</td></tr>
+            </tbody>
+          </table>
+
+          <!-- AI最適化提案 -->
+          <div id="ss-optimization" style="display:none;">
+            <div class="ss-tbl-header">AI最適化提案</div>
+            <div class="ss-opt-cards" id="ss-opt-cards"></div>
           </div>
-          <div class="ss-opt-cards" id="ss-opt-cards"></div>
         </div>
       </div>
     </div>

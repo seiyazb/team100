@@ -234,34 +234,62 @@
   padding: 24px;
 }
 
-.ss-section {
+/* ===== テーブル形式スキルシート ===== */
+.ss-sheet {
   background: var(--surface-0);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 20px;
-  margin-bottom: 16px;
+  padding: 28px 24px;
+  max-width: 900px;
 }
 
-.ss-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-
-.ss-section-title {
-  font-size: 14px;
-  font-weight: 600;
+.ss-sheet-title {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 20px;
+  padding-bottom: 10px;
+  border-bottom: 3px double #333;
+  letter-spacing: 4px;
   color: var(--text-primary);
 }
 
-.ai-opt-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: linear-gradient(135deg, var(--orange-500), var(--red-600));
+.ss-tbl-header {
+  background: #2c3e50;
   color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  letter-spacing: 2px;
+  margin-top: 16px;
+}
+
+.ss-tbl-header:first-of-type {
+  margin-top: 0;
+}
+
+.ss-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0;
+}
+
+.ss-table th,
+.ss-table td {
+  border: 1px solid #bbb;
+  padding: 6px 10px;
+  font-size: 13px;
+  vertical-align: top;
+  color: var(--text-primary);
+}
+
+.ss-table th {
+  background: #f0f0f0;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  width: 100px;
+  color: var(--text-primary);
 }
 
 .ss-placeholder {
@@ -269,122 +297,91 @@
   color: var(--text-muted);
   margin: 0;
   padding: 8px 0;
+  text-align: center;
 }
 
-/* 基本情報 */
-.ss-basic-info {
-  font-size: 13px;
-  line-height: 1.8;
-}
-
-.ss-info-row {
-  display: flex;
-  gap: 8px;
-  padding: 3px 0;
-}
-
-.ss-info-label {
-  font-weight: 600;
-  color: var(--text-primary);
-  min-width: 90px;
-  flex-shrink: 0;
-}
-
-.ss-info-value {
-  color: var(--text-secondary);
-}
-
-/* スキルタグ */
-.ss-skill-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.ss-skill-tag {
-  display: inline-block;
-  padding: 4px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  border-radius: 6px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-}
-
-/* 職務経歴カード */
-.ss-career-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 12px;
-  background: var(--surface-0);
-}
-
-.ss-career-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-}
-
-.ss-career-project {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.ss-career-period {
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.ss-career-meta {
-  display: flex;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-}
-
-.ss-career-meta span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.ss-career-techs {
+/* 技術スキルボックス */
+.ss-skill-box {
+  border: 1px solid #bbb;
+  border-top: none;
+  padding: 10px 12px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 8px;
+  min-height: 36px;
+  align-items: center;
 }
 
-.ss-tech-tag {
+.ss-skill-chip {
   display: inline-block;
+  background: #e8f4fd;
+  border: 1px solid #b3d9f2;
+  border-radius: 3px;
   padding: 2px 10px;
-  font-size: 11px;
-  font-weight: 500;
-  border-radius: 4px;
-  background: var(--orange-50);
-  color: var(--orange-600);
-  border: 1px solid var(--orange-200);
+  font-size: 12px;
+  color: #1a6fa0;
+}
+
+/* 自己PRボックス */
+.ss-pr-box {
+  border: 1px solid #bbb;
+  border-top: none;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.7;
+  min-height: 40px;
+  color: var(--text-primary);
+}
+
+/* 職務経歴テーブル */
+.ss-career-table .ss-col-no {
+  width: 40px;
+  text-align: center;
+}
+
+.ss-career-table .ss-col-period {
+  width: 120px;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.ss-career-project {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.ss-career-meta {
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 4px;
 }
 
 .ss-career-desc {
-  font-size: 13px;
+  font-size: 12px;
+  margin-bottom: 4px;
+  line-height: 1.5;
   color: var(--text-secondary);
-  line-height: 1.6;
 }
 
-.ss-career-adding {
-  border: 2px dashed var(--border-mid);
-  border-radius: 10px;
-  padding: 20px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
+.ss-career-tech {
+  font-size: 11px;
+  color: #444;
+}
+
+.ss-career-tech b {
+  font-weight: 600;
+}
+
+/* 語学テーブル */
+#ss-lang-table {
+  width: auto;
+  min-width: 320px;
+}
+
+#ss-lang-table th {
+  width: 130px;
 }
 
 /* AI最適化提案 */
@@ -392,11 +389,14 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 12px;
+  border: 1px solid #bbb;
+  border-top: none;
 }
 
 .ss-opt-card {
-  background: var(--orange-50);
-  border: 1px solid var(--orange-200);
+  background: var(--orange-50, #fff7ed);
+  border: 1px solid var(--orange-200, #fed7aa);
   border-radius: 8px;
   padding: 14px;
 }
@@ -404,7 +404,7 @@
 .ss-opt-card-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--orange-600);
+  color: var(--orange-600, #ea580c);
   margin-bottom: 6px;
 }
 
@@ -435,4 +435,5 @@
   .ss-layout { margin: 0 !important; }
   .ss-preview-pane { width: 100% !important; }
   .ss-preview-content { padding: 0 !important; }
+  .ss-sheet { border: none; border-radius: 0; padding: 0; }
 }

@@ -54,12 +54,22 @@ def _build_sheet_response(engineer_id: str) -> Optional[dict]:
             career_from_sheet = raw
         elif s["theme"] == "skills":
             skills_data = raw
+            # tool_info → tools に正規化（Dify側のキー名揺れ対応）
+            if "tool_info" in skills_data and "tools" not in skills_data:
+                skills_data["tools"] = skills_data["tool_info"]
         if opt:
             optimized[s["theme"]] = opt
 
     career_list: list[dict] = []
-    if career_from_sheet and isinstance(career_from_sheet, dict) and career_from_sheet.get("project_name"):
-        career_list.append(career_from_sheet)
+    if career_from_sheet and isinstance(career_from_sheet, dict):
+        # experiences 配列がある場合（Dify/モック共通形式）
+        if isinstance(career_from_sheet.get("experiences"), list):
+            for exp in career_from_sheet["experiences"]:
+                if isinstance(exp, dict) and exp.get("project_name"):
+                    career_list.append(exp)
+        # 直接 project_name がある場合（フォールバック）
+        elif career_from_sheet.get("project_name"):
+            career_list.append(career_from_sheet)
 
     for e in exps:
         ts = json.loads(e["tech_stack"]) if e["tech_stack"] else []
@@ -204,59 +214,144 @@ def _render_pdf_html(data: dict) -> str:
     career_list: list = data.get("career", [])
     skills: dict = data.get("skills", {})
 
+    # --- 技術スキル集計 ---
     all_skills: list[str] = []
     for c in career_list:
         all_skills.extend(c.get("tech_stack", []))
-    all_skills.extend(skills.get("tools", []))
-    all_skills.extend(skills.get("languages", []))
+    all_skills.extend(skills.get("tools", []) or skills.get("tool_info", []))
     unique_skills: list[str] = list(dict.fromkeys(all_skills))
 
-    career_html: str = ""
-    for c in career_list:
-        ts = ", ".join(c.get("tech_stack", []))
-        career_html += (
-            '<div style="margin-bottom:16px; padding:12px; border:1px solid #ddd; border-radius:6px;">'
-            '<div style="display:flex; justify-content:space-between;">'
-            f'<strong>{_esc(c.get("project_name",""))}</strong>'
-            f'<span>{_esc(c.get("period_start",""))} 〜 {_esc(c.get("period_end",""))}</span>'
-            '</div>'
-            f'<div style="margin:6px 0; color:#555;">役職：{_esc(c.get("role_title",""))}　チーム規模：{c.get("team_size","")}名</div>'
-            f'<div style="margin:4px 0; color:#666;">技術：{_esc(ts)}</div>'
-            f'<div style="margin-top:6px;">{_esc(c.get("description",""))}</div>'
-            '</div>'
+    # --- 資格 ---
+    certs: list = skills.get("certifications", [])
+    certs_html: str = "、".join(_esc(c) for c in certs) if certs else "―"
+
+    # --- 語学 ---
+    langs: list = skills.get("language_skills", [])
+    langs_rows: str = ""
+    for lg in langs:
+        langs_rows += f'<tr><td>{_esc(lg.get("language",""))}</td><td>{_esc(lg.get("level",""))}</td></tr>'
+
+    # --- 基本情報テーブル ---
+    school: str = " ".join(filter(None, [basic.get("school_name",""), basic.get("faculty_name",""), basic.get("department_name","")]))
+    relocation: str = "可" if basic.get("relocation_ok") else "不可" if basic.get("relocation_ok") is not None else "―"
+
+    # --- 職務経歴テーブル ---
+    career_rows: str = ""
+    for i, c in enumerate(career_list, 1):
+        ts = c.get("tech_stack", [])
+        # 技術をカテゴリ分けせず一覧表示
+        tech_str: str = "、".join(_esc(t) for t in ts) if ts else "―"
+        period: str = f'{_esc(c.get("period_start",""))} ～ {_esc(c.get("period_end","現在"))}'
+        team: str = f'{c.get("team_size","―")}名' if c.get("team_size") else "―"
+        career_rows += (
+            f'<tr>'
+            f'<td class="no">{i}</td>'
+            f'<td class="period">{period}</td>'
+            f'<td class="detail">'
+            f'<div class="project-name">【{_esc(c.get("project_name",""))}】</div>'
+            f'<div class="career-meta">'
+            f'<span>役割：{_esc(c.get("role_title","―"))}</span>'
+            f'<span class="sep">／</span>'
+            f'<span>規模：{team}</span>'
+            f'</div>'
+            f'<div class="desc">{_esc(c.get("description",""))}</div>'
+            f'<div class="tech-row"><span class="tech-label">使用技術：</span>{tech_str}</div>'
+            f'</td>'
+            f'</tr>'
         )
 
-    certs: list = skills.get("certifications", [])
-    certs_html: str = ", ".join(certs) if certs else "—"
-    langs: list = skills.get("language_skills", [])
-    langs_html: str = ", ".join(f'{l.get("language","")}: {l.get("level","")}' for l in langs) if langs else "—"
+    if not career_rows:
+        career_rows = '<tr><td colspan="3" style="text-align:center;color:#999;padding:20px;">職務経歴データなし</td></tr>'
 
-    skill_tags: str = "".join(f'<span class="skill-tag">{_esc(s)}</span>' for s in unique_skills)
+    # --- 技術スキルサマリ行 ---
+    skill_cells: str = ""
+    for s in unique_skills:
+        skill_cells += f'<span class="skill-chip">{_esc(s)}</span>'
 
     return (
-        '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>'
-        'body { font-family: "Noto Sans JP", "Hiragino Sans", sans-serif; margin: 40px; color: #1c1917; font-size: 13px; line-height: 1.7; }'
-        'h1 { font-size: 20px; border-bottom: 3px solid #f97316; padding-bottom: 8px; margin-bottom: 24px; }'
-        'h2 { font-size: 15px; color: #ea580c; margin: 20px 0 10px; border-left: 4px solid #f97316; padding-left: 10px; }'
-        '.info-row { display: flex; gap: 8px; margin: 4px 0; }'
-        '.info-label { font-weight: 600; min-width: 100px; }'
-        '.skills-tags { display: flex; flex-wrap: wrap; gap: 6px; }'
-        '.skill-tag { background: #fff7ed; border: 1px solid #fed7aa; color: #ea580c; padding: 2px 10px; border-radius: 4px; font-size: 12px; }'
+        '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">'
+        '<style>'
+        '@page { size: A4; margin: 15mm 12mm; }'
+        'body { font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;'
+        '  margin: 0; padding: 0; color: #222; font-size: 10pt; line-height: 1.6; }'
+        'h1 { text-align: center; font-size: 16pt; margin: 0 0 6px; padding: 10px 0 8px;'
+        '  border-bottom: 3px double #333; letter-spacing: 4px; }'
+        '.subtitle { text-align: right; font-size: 9pt; color: #666; margin-bottom: 14px; }'
+        'table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }'
+        'th, td { border: 1px solid #999; padding: 5px 8px; vertical-align: top; font-size: 9.5pt; }'
+        'th { background: #f0f0f0; font-weight: 600; white-space: nowrap; text-align: center; width: 100px; }'
+        /* セクション見出し */
+        '.section-header { background: #2c3e50; color: #fff; font-size: 11pt; font-weight: 600;'
+        '  padding: 6px 10px; letter-spacing: 2px; margin-top: 10px; margin-bottom: 0; }'
+        '.section-header + table { margin-top: 0; }'
+        /* 職務経歴テーブル */
+        '.career-table th { background: #f0f0f0; }'
+        '.career-table .no { width: 30px; text-align: center; }'
+        '.career-table .period { width: 110px; text-align: center; font-size: 9pt; white-space: nowrap; }'
+        '.career-table .detail { text-align: left; }'
+        '.project-name { font-weight: 700; font-size: 10pt; margin-bottom: 3px; }'
+        '.career-meta { font-size: 9pt; color: #555; margin-bottom: 4px; }'
+        '.career-meta .sep { margin: 0 4px; }'
+        '.desc { font-size: 9pt; margin-bottom: 4px; line-height: 1.5; }'
+        '.tech-row { font-size: 8.5pt; color: #444; }'
+        '.tech-label { font-weight: 600; }'
+        /* スキルチップ */
+        '.skill-chip { display: inline-block; background: #e8f4fd; border: 1px solid #b3d9f2;'
+        '  border-radius: 3px; padding: 1px 8px; margin: 2px 3px; font-size: 8.5pt; }'
+        /* 自己PR */
+        '.pr-box { border: 1px solid #999; padding: 8px 10px; font-size: 9.5pt; line-height: 1.7;'
+        '  min-height: 40px; margin-bottom: 14px; }'
+        /* 語学テーブル */
+        '.lang-table { width: auto; min-width: 300px; }'
+        '.lang-table th { width: 120px; }'
         '</style></head><body>'
-        f'<h1>【スキルシート】{_esc(data.get("name",""))}</h1>'
-        '<h2>基本情報</h2>'
-        f'<div class="info-row"><span class="info-label">専門分野：</span><span>{_esc(data.get("specialty",""))}</span></div>'
-        f'<div class="info-row"><span class="info-label">最終学歴：</span><span>{_esc(basic.get("school_name",""))} {_esc(basic.get("faculty_name",""))}</span></div>'
-        f'<div class="info-row"><span class="info-label">勤務地：</span><span>{_esc(basic.get("work_location",""))}</span></div>'
-        f'<div class="info-row"><span class="info-label">自己PR：</span><span>{_esc(basic.get("self_pr",""))}</span></div>'
-        '<h2>主要スキル</h2>'
-        f'<div class="skills-tags">{skill_tags}</div>'
-        '<h2>職務経歴</h2>'
-        f'{career_html if career_html else "<p style=color:#999>データなし</p>"}'
-        '<h2>資格</h2>'
-        f'<p>{_esc(certs_html)}</p>'
-        '<h2>語学力</h2>'
-        f'<p>{_esc(langs_html)}</p>'
+
+        # ===== ヘッダー =====
+        '<h1>スキルシート</h1>'
+
+        # ===== 基本情報 =====
+        '<div class="section-header">基本情報</div>'
+        '<table>'
+        f'<tr><th>氏名</th><td colspan="3">{_esc(data.get("name",""))}</td></tr>'
+        f'<tr><th>専門分野</th><td>{_esc(data.get("specialty",""))}</td>'
+        f'<th>スキルレベル</th><td>{_esc(basic.get("skill_level",""))}</td></tr>'
+        f'<tr><th>最終学歴</th><td colspan="3">{_esc(school)}</td></tr>'
+        f'<tr><th>勤務地</th><td>{_esc(basic.get("work_location",""))}</td>'
+        f'<th>最寄駅</th><td>{_esc(basic.get("nearest_station",""))}</td></tr>'
+        f'<tr><th>転勤</th><td>{relocation}</td>'
+        f'<th>趣味・特技</th><td>{_esc(basic.get("hobbies",""))}</td></tr>'
+        '</table>'
+
+        # ===== 資格 =====
+        '<div class="section-header">保有資格</div>'
+        '<table>'
+        f'<tr><td>{certs_html}</td></tr>'
+        '</table>'
+
+        # ===== 語学力 =====
+        '<div class="section-header">語学力</div>'
+        f'<table class="lang-table">'
+        f'<tr><th>言語</th><th>レベル</th></tr>'
+        f'{langs_rows if langs_rows else "<tr><td colspan=2>―</td></tr>"}'
+        f'</table>'
+
+        # ===== 技術スキルサマリ =====
+        '<div class="section-header">技術スキル</div>'
+        '<div style="border:1px solid #999;border-top:none;padding:8px 10px;margin-bottom:14px;">'
+        f'{skill_cells if skill_cells else "―"}'
+        '</div>'
+
+        # ===== 自己PR =====
+        '<div class="section-header">自己PR</div>'
+        f'<div class="pr-box">{_esc(basic.get("self_pr",""))}</div>'
+
+        # ===== 職務経歴 =====
+        '<div class="section-header">職務経歴</div>'
+        '<table class="career-table">'
+        '<tr><th class="no">No.</th><th class="period">期間</th><th class="detail">業務内容</th></tr>'
+        f'{career_rows}'
+        '</table>'
+
         '</body></html>'
     )
 
